@@ -1,9 +1,11 @@
-### 2. `documents.controller.js`
-Replace your entire `controllers/documents.controller.js` with this code:
+---
+
+### 2. File Path: `controllers/documents.controller.js`
+Is code ko poori tarah select karein aur apni `controllers/documents.controller.js` file ke andar paste kar dein:
 
 ```javascript
 /**
- * Documents Controller — Dynamic CV Transformation + Academic Recommendation Letter Generation
+ * Documents Controller — Dynamic CV Transformation + Academic Recommendation Letter Generator
  */
 const { createBudget } = require('../utils/budget');
 const cvService = require('../services/cv.service');
