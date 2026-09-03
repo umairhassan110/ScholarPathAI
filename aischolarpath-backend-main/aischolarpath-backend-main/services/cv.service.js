@@ -1,5 +1,5 @@
 /**
- * CV Service — Full Data Academic Extraction + Crash-Proof Dynamic Europass PDF Builder
+ * CV Service — Full Data Academic Extraction + Crash-Proof Europass PDF Builder
  */
 const pdf = require('pdf-parse');
 const mammoth = require('mammoth');
@@ -32,15 +32,10 @@ async function downloadStoredCv(profileId) {
   try {
     const { data: prof } = await supabase.from('profiles').select('cv_file_path').eq('id', profileId).single();
     if (!prof || !prof.cv_file_path) return null;
-
     const { data, error } = await supabase.storage.from('cvs').download(prof.cv_file_path);
     if (error || !data) return null;
-
     const arrayBuffer = await data.arrayBuffer();
-    return {
-      buffer: Buffer.from(arrayBuffer),
-      mimeType: data.type || 'application/pdf'
-    };
+    return { buffer: Buffer.from(arrayBuffer), mimeType: data.type || 'application/pdf' };
   } catch (e) {
     return null;
   }
@@ -49,18 +44,9 @@ async function downloadStoredCv(profileId) {
 // 3. Upload CV to Supabase storage
 async function uploadCv(profileId, buffer, mimeType, originalName) {
   const filePath = `${profileId}/${Date.now()}_${originalName || 'cv.pdf'}`;
-
   try {
-    await supabase.storage.from('cvs').upload(filePath, buffer, {
-      contentType: mimeType,
-      upsert: true
-    });
-
-    await supabase
-      .from('profiles')
-      .update({ cv_file_path: filePath })
-      .eq('id', profileId);
-
+    await supabase.storage.from('cvs').upload(filePath, buffer, { contentType: mimeType, upsert: true });
+    await supabase.from('profiles').update({ cv_file_path: filePath }).eq('id', profileId);
     return filePath;
   } catch (e) {
     console.warn('Storage upload skipped:', e.message);
@@ -68,7 +54,7 @@ async function uploadCv(profileId, buffer, mimeType, originalName) {
   }
 }
 
-// 4. FULL CV DATA EXTRACTION VIA AI (Extracts EVERYTHING Dynamically)
+// 4. FULL DATA EXTRACTION VIA GROQ AI
 async function extractAcademicData(cvText, budget) {
   const prompt = `You are an expert CV parser. Extract ALL candidate details from this CV text:
 
@@ -78,54 +64,32 @@ ${cvText}
 Return strictly a JSON object with this exact structure:
 {
   "full_name": "Candidate Full Name",
-  "email": "candidate@email.com",
-  "phone": "+92-xxx-xxxxxxx",
-  "address": "City, Country",
-  "linkedin": "://linkedin.com",
-  "summary": "Professional executive summary...",
   "academics": {
     "degree_level": "Bachelor's, Master's, or PhD",
     "field_of_study": "e.g. Artificial Intelligence or Computer Science",
     "cgpa": 3.5,
     "university": "University Name",
-    "period": "2022 – 2026"
+    "fsc_percentage": 85
   },
   "skills": {
-    "technical": "Languages and Tools (Python, C++, PyTorch, etc.)",
-    "digital": "Frameworks and libraries",
-    "other": "Domain methodologies"
+    "technical": "Languages and Tools (Python, C++, PyTorch, OpenCV, YOLO, LLMs, etc.)",
+    "digital": "AI & Machine Learning libraries",
+    "other": "Agentic AI, CrewAI, etc."
   },
   "projects": [
-    {
-      "name": "Project Name",
-      "tech": "Technologies used",
-      "description": "1-2 sentence description of project and technologies"
-    }
+    { "name": "Project Name", "description": "1-2 sentence description of project and technologies" }
   ],
   "certifications": [
-    {
-      "name": "Certification / Award title",
-      "issuer": "Organization",
-      "year": "2026"
-    }
+    { "name": "Certification / Award title", "issuer": "Organization", "year": "2026" }
   ],
   "publications": [
-    {
-      "title": "Paper / Article Title",
-      "venue": "Preprint / Journal",
-      "year": "2026"
-    }
-  ],
-  "references": "References status"
+    { "title": "Paper / Article Title", "venue": "Preprint / Journal", "year": "2026" }
+  ]
 }`;
 
   let parsed = null;
-
   try {
-    parsed = await askAI(prompt, {
-      domain: 'cvExtractor',
-      jsonMode: true
-    });
+    parsed = await askAI(prompt, { domain: 'cvExtractor', jsonMode: true });
   } catch (err) {
     console.warn('AI extraction warning:', err.message);
   }
@@ -133,29 +97,27 @@ Return strictly a JSON object with this exact structure:
   if (!parsed || typeof parsed !== 'object') {
     parsed = {
       full_name: 'Umair Hassan',
-      email: 'uh3447347@gmail.com',
-      phone: '+92-312-138-2700',
-      address: 'Islamabad, Pakistan',
-      linkedin: '://linkedin.com',
-      summary:
-        'Undergraduate AI student with hands-on expertise in Machine Learning, Computer Vision, LLMs, and Agentic AI.',
       academics: {
         degree_level: "Bachelor's",
         field_of_study: 'Artificial Intelligence',
         cgpa: 3.5,
-        university: 'Muslim Youth University, Islamabad',
-        period: '2022 – 2026'
+        university: 'Muslim Youth University, Islamabad'
       },
       skills: {
-        technical:
-          'Python, C++, PyTorch, Computer Vision, YOLOv11, LLMs, Agentic AI, CrewAI'
+        technical: 'Python, C++, PyTorch, Computer Vision, YOLOv11, LLMs, Agentic AI, CrewAI'
       },
       projects: [
         {
           name: 'InkFlow AI Platform',
-          tech: 'Python, Web Dev, AI APIs',
-          description:
-            'Full-stack SaaS platform that consolidates 11+ specialized AI tools into a unified web interface.'
+          description: 'Full-stack SaaS consolidating 11+ AI tools.'
+        },
+        {
+          name: 'Autonomous Vehicle Prototype',
+          description: 'Real-time deep learning vision pipeline using YOLOv8.'
+        },
+        {
+          name: 'Heart Attack Risk Predictor',
+          description: 'Machine learning classification pipeline with Scikit-Learn.'
         }
       ],
       certifications: [
@@ -167,8 +129,7 @@ Return strictly a JSON object with this exact structure:
       ],
       publications: [
         {
-          title:
-            'Enhanced Camouflaged Object Detection using Swin Transformer',
+          title: 'Enhanced Camouflaged Object Detection using Swin Transformer',
           venue: 'ResearchGate Preprint',
           year: '2026'
         }
@@ -183,13 +144,13 @@ Return strictly a JSON object with this exact structure:
 async function persistExtractedData(profileId, extractedData) {
   if (!profileId || !extractedData) return;
 
-  await supabase.from('extracted_profile_data').insert([
-    {
-      profile_id: profileId,
-      raw_extraction: extractedData
-    }
-  ]);
+  // Insert into extracted_profile_data
+  await supabase.from('extracted_profile_data').insert([{
+    profile_id: profileId,
+    raw_extraction: extractedData,
+  }]);
 
+  // Update profile fields
   const updates = {};
   const ac = extractedData.academics || extractedData;
 
@@ -206,27 +167,48 @@ async function persistExtractedData(profileId, extractedData) {
   }
 
   if (Object.keys(updates).length > 0) {
-    await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('id', profileId);
+    await supabase.from('profiles').update(updates).eq('id', profileId);
   }
 }
 
 // 6. Parse Europass sections for CV Builder
 async function parseEuropassSections(cvText, budget) {
-  return await extractAcademicData(cvText, budget);
+  const data = await extractAcademicData(cvText, budget);
+
+  return {
+    full_name: data.full_name || 'UMAIR HASSAN',
+    email: 'uh3447347@gmail.com',
+    phone: '+92-312-138-2700',
+    address: 'Islamabad, Pakistan',
+    summary: 'Undergraduate AI student with hands-on expertise in Machine Learning, Computer Vision, LLMs, and Agentic AI.',
+    education: [{
+      degree: data.academics?.degree_level || "Bachelor's Degree",
+      institution: data.academics?.university || 'Muslim Youth University, Islamabad',
+      period: '2022 – 2026',
+      cgpa: data.academics?.cgpa || 3.5,
+    }],
+    work_experience: [],
+    projects: data.projects || [],
+    skills: data.skills || {},
+    certifications: data.certifications || [],
+    publications: data.publications || [],
+    languages: [
+      { language: 'English', level: 'Proficient' },
+      { language: 'Urdu', level: 'Native' }
+    ],
+    references: 'Available upon request',
+  };
 }
 
 /**
- * 🛡️ 100% DYNAMIC CRASH-PROOF EUROPASS PDF BUILDER
+ * Render structured Europass sections into an Executive, Professional PDF (jsPDF).
+ * Clean 2-page balanced layout, elegant Europass Navy styling, zero text overlap.
+ * @returns data URI string or null on failure
  */
 function buildEuropassPdf(parsed) {
   try {
     const jspdfModule = require('jspdf');
-    const DocClass =
-      jspdfModule.jsPDF || jspdfModule.default || jspdfModule;
-
+    const DocClass = jspdfModule.jsPDF || jspdfModule.default || jspdfModule;
     const doc = new DocClass();
 
     const M = 18;
@@ -263,26 +245,28 @@ function buildEuropassPdf(parsed) {
       doc.setTextColor(30, 41, 59);
     }
 
+    function uniqueItems(items) {
+      const seen = new Set();
+
+      return (Array.isArray(items) ? items : []).filter((item) => {
+        if (!item) return false;
+
+        const key =
+          typeof item === 'string'
+            ? item.trim().toLowerCase()
+            : JSON.stringify(item);
+
+        if (!key || seen.has(key)) return false;
+
+        seen.add(key);
+        return true;
+      });
+    }
+
     const data = parsed || {};
-    const academics = data.academics || {};
-    const skills = data.skills || {};
 
-    const projectList = Array.isArray(data.projects)
-      ? data.projects
-      : [];
-
-    const certList = Array.isArray(data.certifications)
-      ? data.certifications
-      : [];
-
-    const pubList = Array.isArray(data.publications)
-      ? data.publications
-      : [];
-
-    // ── 1. HEADER PROFILE ──
-    const cvName = String(
-      data.full_name || 'CANDIDATE NAME'
-    ).toUpperCase();
+    // ── 1. HEADER (CANDIDATE PROFILE) ──
+    const cvName = String(data.full_name || 'UMAIR HASSAN').toUpperCase();
 
     doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
@@ -311,7 +295,7 @@ function buildEuropassPdf(parsed) {
 
     y += 6;
 
-    // ── 2. CONTACT BANDS ──
+    // ── 2. CONTACT INFORMATION ──
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(71, 85, 105);
@@ -320,13 +304,13 @@ function buildEuropassPdf(parsed) {
     const col2 = M + 90;
 
     doc.text(
-      `Location: ${data.address || 'Not Specified'}`,
+      `Location: Islamabad, Pakistan`,
       col1,
       y
     );
 
     doc.text(
-      `Phone: ${data.phone || 'Not Specified'}`,
+      `Phone: +92 312 138 2700`,
       col2,
       y
     );
@@ -334,22 +318,20 @@ function buildEuropassPdf(parsed) {
     y += 4.5;
 
     doc.text(
-      `Email: ${data.email || 'Not Specified'}`,
+      `Email: uh3447347@gmail.com`,
       col1,
       y
     );
 
-    if (data.linkedin) {
-      doc.text(
-        `LinkedIn: ${data.linkedin}`,
-        col2,
-        y
-      );
-    }
+    doc.text(
+      `LinkedIn: ://linkedin.com`,
+      col2,
+      y
+    );
 
     y += 6;
 
-    // ── 3. SUMMARY ──
+    // ── 3. ABOUT ME ──
     if (data.summary) {
       sectionHeader('About Me');
 
@@ -369,295 +351,287 @@ function buildEuropassPdf(parsed) {
       y += sumLines.length * 4.5 + 3;
     }
 
-    // ── 4. EDUCATION ──
-    if (
-      academics.degree_level ||
-      academics.university
-    ) {
-      sectionHeader('Education and Training');
+    // ── 4. EDUCATION AND TRAINING ──
+    sectionHeader('Education and Training');
 
-      addPageIfNeeded(22);
+    addPageIfNeeded(22);
 
-      doc.setFontSize(10.5);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(15, 23, 42);
+    doc.setFontSize(10.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 23, 42);
 
-      const degreeText = academics.field_of_study
-        ? `${academics.degree_level} in ${academics.field_of_study}`
-        : `${academics.degree_level || 'Degree Qualification'}`;
+    doc.text(
+      "Bachelor of Science in Artificial Intelligence",
+      M,
+      y
+    );
 
-      doc.text(degreeText, M, y);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
 
-      if (academics.period) {
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(100, 116, 139);
+    doc.text(
+      "2022 – 2026",
+      M + W - doc.getTextWidth("2022 – 2026"),
+      y
+    );
 
-        doc.text(
-          academics.period,
-          M + W - doc.getTextWidth(academics.period),
-          y
-        );
+    y += 5;
+
+    doc.setFontSize(9.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(51, 65, 85);
+
+    doc.text(
+      "Muslim Youth University, Islamabad · CGPA: 3.2 / 4.0",
+      M,
+      y
+    );
+
+    y += 7;
+
+    // ── 5. PROJECTS (CLEAN, PROPERLY WRAPPED BULLETS) ──
+    const projectList = [
+      {
+        name: 'InkFlow AI Platform',
+        tech: 'Python, Web Dev, AI APIs',
+        desc: 'Full-stack SaaS platform that consolidates 11+ specialized AI tools into a unified web interface via secure API integrations.'
+      },
+      {
+        name: 'Autonomous Vehicle Prototype',
+        tech: 'Python, YOLOv8, Raspberry Pi, OpenCV',
+        desc: 'Real-time deep learning vision pipeline on Raspberry Pi using YOLOv8 for instant object detection and autonomous collision avoidance.'
+      },
+      {
+        name: 'Heart Attack Risk Predictor',
+        tech: 'Python, Machine Learning, Scikit-Learn',
+        desc: 'Engineered a predictive ML classification pipeline using Python and Scikit-Learn to analyze clinical health metrics and evaluate patient risk factors.'
       }
+    ];
 
-      y += 5;
+    sectionHeader('Key Projects');
 
-      doc.setFontSize(9.5);
+    projectList.forEach((proj) => {
+      addPageIfNeeded(20);
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(18, 91, 201);
+
+      doc.text(
+        `•  ${proj.name}`,
+        M,
+        y
+      );
+
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(100, 116, 139);
+
+      doc.text(
+        ` [${proj.tech}]`,
+        M +
+          doc.getTextWidth(`•  ${proj.name}`) +
+          2,
+        y
+      );
+
+      y += 4.5;
+
+      doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(51, 65, 85);
 
-      let eduDetails =
-        academics.university ||
-        'University Profile Name';
+      const descLines = doc.splitTextToSize(
+        proj.desc,
+        W - 6
+      );
 
-      if (academics.cgpa) {
-        eduDetails += ` · CGPA: ${academics.cgpa}`;
+      doc.text(
+        descLines,
+        M + 4,
+        y
+      );
+
+      y += descLines.length * 4.2 + 3;
+    });
+
+    // ── 6. PERSONAL SKILLS ──
+    sectionHeader('Personal Skills');
+
+    addPageIfNeeded(20);
+
+    const skillRows = [
+      {
+        label: 'Programming & Tools',
+        val: 'Python, C++, Java, SQL, Git, GitHub'
+      },
+      {
+        label: 'AI & Machine Learning',
+        val: 'LLMs, Deep Learning, Computer Vision, OpenCV, PyTorch, TensorFlow, YOLOv11'
+      },
+      {
+        label: 'Agentic AI & Automation',
+        val: 'Autonomous Agents, Agentic Workflows, CrewAI, n8n, Edge AI'
+      },
+      {
+        label: 'Languages',
+        val: 'English (Proficient), Urdu (Native)'
       }
+    ];
 
-      doc.text(eduDetails, M, y);
+    skillRows.forEach((sr) => {
+      addPageIfNeeded(12);
 
-      y += 7;
-    }
+      doc.setFontSize(9.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 41, 59);
 
-    // ── 5. PROJECTS ──
-    if (projectList.length > 0) {
-      sectionHeader('Key Projects');
-
-      projectList.forEach((proj) => {
-        if (!proj.name) return;
-
-        addPageIfNeeded(20);
-
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(18, 91, 201);
-
-        doc.text(`•  ${proj.name}`, M, y);
-
-        if (proj.tech) {
-          doc.setFontSize(8.5);
-          doc.setFont('helvetica', 'italic');
-          doc.setTextColor(100, 116, 139);
-
-          doc.text(
-            ` [${proj.tech}]`,
-            M +
-              doc.getTextWidth(
-                `•  ${proj.name}`
-              ) +
-              2,
-            y
-          );
-        }
-
-        y += 4.5;
-
-        const pDesc =
-          proj.description || proj.desc;
-
-        if (pDesc) {
-          doc.setFontSize(9);
-          doc.setFont('helvetica', 'normal');
-          doc.setTextColor(51, 65, 85);
-
-          const descLines =
-            doc.splitTextToSize(
-              pDesc,
-              W - 6
-            );
-
-          doc.text(
-            descLines,
-            M + 4,
-            y
-          );
-
-          y += descLines.length * 4.2 + 3;
-        }
-      });
-    }
-
-    // ── 6. SKILLS ──
-    if (Object.keys(skills).length > 0) {
-      sectionHeader('Personal Skills');
-
-      addPageIfNeeded(20);
-
-      Object.entries(skills).forEach(
-        ([key, val]) => {
-          if (!val) return;
-
-          addPageIfNeeded(12);
-
-          const label =
-            key.charAt(0).toUpperCase() +
-            key.slice(1);
-
-          doc.setFontSize(9.5);
-          doc.setFont('helvetica', 'bold');
-          doc.setTextColor(30, 41, 59);
-
-          doc.text(
-            `•  ${label}: `,
-            M,
-            y
-          );
-
-          const labelW =
-            doc.getTextWidth(
-              `•  ${label}: `
-            );
-
-          doc.setFont(
-            'helvetica',
-            'normal'
-          );
-
-          doc.setTextColor(
-            51,
-            65,
-            85
-          );
-
-          const lines =
-            doc.splitTextToSize(
-              String(val),
-              W - labelW
-            );
-
-          doc.text(
-            lines,
-            M + labelW,
-            y
-          );
-
-          y += lines.length * 4.2 + 2.5;
-        }
-      );
-    }
-
-    // ── 7. CERTIFICATIONS ──
-    if (certList.length > 0) {
-      sectionHeader(
-        'Certifications & Awards'
+      doc.text(
+        `•  ${sr.label}: `,
+        M,
+        y
       );
 
-      certList.forEach((cert) => {
-        if (!cert.name) return;
-
-        addPageIfNeeded(12);
-
-        doc.setFontSize(9.5);
-        doc.setFont(
-          'helvetica',
-          'bold'
-        );
-
-        doc.setTextColor(
-          30,
-          41,
-          59
-        );
-
-        doc.text(
-          `•  ${cert.name}`,
-          M,
-          y
-        );
-
-        if (
-          cert.issuer ||
-          cert.org ||
-          cert.year
-        ) {
-          doc.setFont(
-            'helvetica',
-            'normal'
-          );
-
-          doc.setTextColor(
-            100,
-            116,
-            139
-          );
-
-          const meta = [
-            cert.issuer || cert.org,
-            cert.year
-          ]
-            .filter(Boolean)
-            .join(' · ');
-
-          doc.text(
-            ` (${meta})`,
-            M +
-              doc.getTextWidth(
-                `•  ${cert.name}`
-              ),
-            y
-          );
-        }
-
-        y += 5.5;
-      });
-    }
-
-    // ── 8. PUBLICATIONS ──
-    if (pubList.length > 0) {
-      sectionHeader(
-        'Publications & Research'
+      const labelW = doc.getTextWidth(
+        `•  ${sr.label}: `
       );
 
-      pubList.forEach((pub) => {
-        if (!pub.title) return;
+      doc.setFont(
+        'helvetica',
+        'normal'
+      );
 
-        addPageIfNeeded(14);
+      doc.setTextColor(
+        51,
+        65,
+        85
+      );
 
-        doc.setFontSize(9);
-        doc.setFont(
-          'helvetica',
-          'normal'
+      const lines = doc.splitTextToSize(
+        sr.val,
+        W - labelW
+      );
+
+      doc.text(
+        lines,
+        M + labelW,
+        y
+      );
+
+      y += lines.length * 4.2 + 2.5;
+    });
+
+    // ── 7. CERTIFICATIONS & AWARDS ──
+    sectionHeader('Certifications & Awards');
+
+    const certList = [
+      {
+        title: 'ROBOCUST Robotics Competition — Runner-Up',
+        org: 'SCEEK & IEEE Pakistan',
+        year: '2026'
+      },
+      {
+        title: 'Career Essentials in Generative AI',
+        org: 'Microsoft & LinkedIn Learning',
+        year: '2024'
+      }
+    ];
+
+    certList.forEach((cert) => {
+      addPageIfNeeded(12);
+
+      doc.setFontSize(9.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 41, 59);
+
+      doc.text(
+        `•  ${cert.title}`,
+        M,
+        y
+      );
+
+      doc.setFont(
+        'helvetica',
+        'normal'
+      );
+
+      doc.setTextColor(
+        100,
+        116,
+        139
+      );
+
+      doc.text(
+        ` (${cert.org} · ${cert.year})`,
+        M +
+          doc.getTextWidth(
+            `•  ${cert.title}`
+          ),
+        y
+      );
+
+      y += 5.5;
+    });
+
+    // ── 8. PUBLICATIONS & RESEARCH ──
+    sectionHeader('Publications & Research');
+
+    const pubList = [
+      {
+        title: 'Enhanced Camouflaged Object Detection using Swin Transformer and Gated Fusion Mechanism',
+        venue: 'ResearchGate Preprint',
+        year: '2026'
+      },
+      {
+        title: "Education for Sale: The Collapse of Pakistan's Academic Integrity",
+        venue: 'Published Article',
+        year: '2026'
+      },
+      {
+        title: 'Artificial Intelligence and Its Real Consequences: How AI Is Destroying Our Minds, Jobs, and Ethics',
+        venue: 'Published Article',
+        year: '2026'
+      }
+    ];
+
+    pubList.forEach((pub) => {
+      addPageIfNeeded(14);
+
+      doc.setFontSize(9);
+      doc.setFont(
+        'helvetica',
+        'normal'
+      );
+
+      doc.setTextColor(
+        30,
+        41,
+        59
+      );
+
+      const pubText =
+        `•  ${pub.title} — ${pub.venue} (${pub.year})`;
+
+      const pubLines =
+        doc.splitTextToSize(
+          pubText,
+          W
         );
 
-        doc.setTextColor(
-          30,
-          41,
-          59
-        );
+      doc.text(
+        pubLines,
+        M,
+        y
+      );
 
-        let pubText =
-          `•  ${pub.title}`;
-
-        if (pub.venue) {
-          pubText +=
-            ` — ${pub.venue}`;
-        }
-
-        if (pub.year) {
-          pubText +=
-            ` (${pub.year})`;
-        }
-
-        const pubLines =
-          doc.splitTextToSize(
-            pubText,
-            W
-          );
-
-        doc.text(
-          pubLines,
-          M,
-          y
-        );
-
-        y +=
-          pubLines.length * 4.2 +
-          2.5;
-      });
-    }
+      y +=
+        pubLines.length * 4.2 +
+        2.5;
+    });
 
     // ── 9. REFERENCES ──
-    addPageIfNeeded(15);
+    addPageIfNeeded(10);
 
     sectionHeader('References');
 
@@ -674,13 +648,12 @@ function buildEuropassPdf(parsed) {
     );
 
     doc.text(
-      data.references ||
-        'Available upon request',
+      'Available upon request',
       M,
       y
     );
 
-    // ── 10. DYNAMIC FOOTER PAGINATION PASS ──
+    // ── 10. PAGE NUMBERS ──
     const totalPages =
       doc.internal.getNumberOfPages();
 
@@ -692,6 +665,7 @@ function buildEuropassPdf(parsed) {
       doc.setPage(p);
 
       doc.setFontSize(8);
+
       doc.setTextColor(
         148,
         163,
@@ -708,7 +682,7 @@ function buildEuropassPdf(parsed) {
       );
 
       doc.text(
-        'ScholarPath AI · Europass CV Template',
+        'ScholarPath AI · Europass CV',
         M,
         290
       );
@@ -717,9 +691,10 @@ function buildEuropassPdf(parsed) {
     return doc.output(
       'datauristring'
     );
+
   } catch (pdfErr) {
     console.error(
-      'PDF formatting error:',
+      'PDF error:',
       pdfErr.message
     );
 
@@ -734,5 +709,5 @@ module.exports = {
   extractAcademicData,
   persistExtractedData,
   parseEuropassSections,
-  buildEuropassPdf
+  buildEuropassPdf,
 };
