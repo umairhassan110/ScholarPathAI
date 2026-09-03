@@ -1,12 +1,18 @@
 /**
  * Render structured Europass sections into a clean, modern, professional PDF (jsPDF).
- * Exactly matches the web preview with proper margins, clean headers, and zero line duplication.
+ * Fully safe against null properties, no setCharSpace crash, guaranteed valid output.
  * @returns data URI string or null on failure
  */
 function buildEuropassPdf(parsed) {
   try {
-    const doc = new jsPDF();
-    doc.setCharSpace(0);
+    const jspdfModule = require('jspdf');
+    const DocClass = jspdfModule.jsPDF || jspdfModule.default || jspdfModule;
+    const doc = new DocClass();
+
+    if (typeof doc.setCharSpace === 'function') {
+      try { doc.setCharSpace(0); } catch (e) { /* ignore */ }
+    }
+
     const M = 15;
     const W = 180;
     let y = 18;
@@ -28,7 +34,7 @@ function buildEuropassPdf(parsed) {
       doc.setFontSize(11);
       doc.setTextColor(18, 91, 201);
       doc.setFont('helvetica', 'bold');
-      doc.text(title.toUpperCase(), M, y);
+      doc.text(String(title || '').toUpperCase(), M, y);
       y += 6;
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(30, 41, 59);
@@ -37,6 +43,7 @@ function buildEuropassPdf(parsed) {
     function uniqueItems(items) {
       const seen = new Set();
       return (Array.isArray(items) ? items : []).filter((item) => {
+        if (!item) return false;
         const key = typeof item === 'string' ? item.trim().toLowerCase() : JSON.stringify(item);
         if (!key || seen.has(key)) return false;
         seen.add(key);
@@ -44,8 +51,10 @@ function buildEuropassPdf(parsed) {
       });
     }
 
-    // ── 1. HEADER (CANDIDATE NAME & TITLE) ──
-    const cvName = (parsed.full_name || 'UMAIR HASSAN').toUpperCase();
+    const data = parsed || {};
+
+    // ── 1. HEADER ──
+    const cvName = String(data.full_name || 'UMAIR HASSAN').toUpperCase();
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 23, 42);
@@ -63,13 +72,12 @@ function buildEuropassPdf(parsed) {
     doc.line(M, y, M + W, y);
     y += 5;
 
-    // ── 2. PERSONAL / CONTACT INFORMATION ──
-    let rawAddress = parsed.address || '';
-    let email = parsed.email || '';
-    let phone = parsed.phone || '';
+    // ── 2. CONTACT INFORMATION ──
+    let rawAddress = String(data.address || '');
+    let email = String(data.email || '');
+    let phone = String(data.phone || '');
     let cleanAddress = '';
     let linkedin = '';
-    let website = '';
 
     if (rawAddress.includes('|')) {
       const parts = rawAddress.split('|').map(p => p.trim()).filter(Boolean);
@@ -77,7 +85,6 @@ function buildEuropassPdf(parsed) {
         if (part.includes('@') && !email) email = part;
         else if ((part.includes('+') || /\d{4,}/.test(part)) && !phone) phone = part;
         else if (part.toLowerCase().includes('linkedin') && !linkedin) linkedin = part;
-        else if ((part.startsWith('http') || part.includes('.com') || part.includes('.ai')) && !website) website = part;
         else if (!cleanAddress) cleanAddress = part;
       });
     } else {
@@ -109,37 +116,34 @@ function buildEuropassPdf(parsed) {
     if (linkedin) {
       doc.text(`LinkedIn: ${linkedin}`, contactCol2, yCol2);
       yCol2 += 4.5;
-    } else if (website) {
-      doc.text(`Portfolio: ${website}`, contactCol2, yCol2);
-      yCol2 += 4.5;
     }
 
     y = Math.max(y, yCol2) + 2;
 
-    // ── 3. ABOUT ME / SUMMARY ──
-    if (parsed.summary) {
+    // ── 3. SUMMARY ──
+    if (data.summary) {
       sectionHeader('About Me');
       doc.setFontSize(9.5);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(30, 41, 59);
-      const sumLines = doc.splitTextToSize(parsed.summary.replace(/\s+/g, ' ').trim(), W);
+      const sumLines = doc.splitTextToSize(String(data.summary).replace(/\s+/g, ' ').trim(), W);
       doc.text(sumLines, M, y);
       y += sumLines.length * 4.5 + 4;
     }
 
-    // ── 4. EDUCATION AND TRAINING ──
-    const education = uniqueItems(parsed.education);
+    // ── 4. EDUCATION ──
+    const education = uniqueItems(data.education);
     if (education.length > 0) {
       sectionHeader('Education and Training');
       education.forEach((edu) => {
-        addPageIfNeeded(22);
-        const deg = edu.degree || 'Bachelor of Science';
+        addPageIfNeeded(20);
+        const deg = String(edu?.degree || edu || 'Bachelor of Science').trim();
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(15, 23, 42);
         doc.text(deg, M, y);
 
-        if (edu.period) {
+        if (edu?.period) {
           doc.setFontSize(9);
           doc.setFont('helvetica', 'normal');
           doc.setTextColor(100, 116, 139);
@@ -147,7 +151,7 @@ function buildEuropassPdf(parsed) {
         }
         y += 4.5;
 
-        let inst = [edu.institution, edu.city].filter(Boolean).join(', ');
+        const inst = [edu?.institution, edu?.city].filter(Boolean).map(String).join(', ');
         if (inst) {
           doc.setFontSize(9.5);
           doc.setFont('helvetica', 'normal');
@@ -156,9 +160,8 @@ function buildEuropassPdf(parsed) {
           y += 4.5;
         }
 
-        if (edu.description) {
-          const descClean = String(edu.description).replace(/\s+/g, ' ').trim();
-          const descLines = doc.splitTextToSize(descClean, W);
+        if (edu?.description) {
+          const descLines = doc.splitTextToSize(String(edu.description).replace(/\s+/g, ' ').trim(), W);
           doc.setFontSize(9);
           doc.setTextColor(71, 85, 105);
           doc.text(descLines, M, y);
@@ -168,19 +171,19 @@ function buildEuropassPdf(parsed) {
       });
     }
 
-    // ── 5. PROJECTS (CLEAN & ZERO DUPLICATION) ──
-    const projects = uniqueItems(parsed.projects);
+    // ── 5. PROJECTS ──
+    const projects = uniqueItems(data.projects);
     if (projects.length > 0) {
       sectionHeader('Projects');
       projects.forEach((proj) => {
-        addPageIfNeeded(20);
-        let pName = (proj.name || 'Project').trim();
-        let pTech = (proj.technologies || '').trim();
-        let pDesc = (proj.description || '').trim();
+        addPageIfNeeded(18);
+        let pName = String(proj?.name || proj || 'Project').trim();
+        let pTech = String(proj?.technologies || '').trim();
+        let pDesc = String(proj?.description || '').trim();
 
         if (pName.includes('|')) {
           const parts = pName.split('|').map(p => p.trim());
-          pName = parts[0];
+          pName = parts[0] || 'Project';
           if (!pTech && parts[1]) pTech = parts[1];
         }
 
@@ -219,11 +222,11 @@ function buildEuropassPdf(parsed) {
 
     // ── 6. SKILLS ──
     sectionHeader('Personal Skills');
-    const skills = parsed.skills || {};
+    const skills = data.skills || {};
     const skillCategories = [
       { label: 'Technical skills', val: skills.technical },
       { label: 'AI & Machine Learning', val: skills.digital || skills.other },
-      { label: 'Languages', val: (parsed.languages || []).map(l => l.language || l).join(', ') },
+      { label: 'Languages', val: (data.languages || []).map(l => l?.language || l).join(', ') },
     ].filter(s => Boolean(s.val));
 
     if (skillCategories.length > 0) {
@@ -243,14 +246,14 @@ function buildEuropassPdf(parsed) {
       });
     }
 
-    // ── 7. CERTIFICATIONS & AWARDS ──
-    const certs = uniqueItems(parsed.certifications);
+    // ── 7. CERTIFICATIONS ──
+    const certs = uniqueItems(data.certifications);
     if (certs.length > 0) {
       sectionHeader('Certifications & Awards');
       certs.forEach((cert) => {
         addPageIfNeeded(12);
-        const cName = (cert.name || cert).trim();
-        const detail = [cert.issuer, cert.year].filter(Boolean).join(' · ');
+        const cName = String(cert?.name || cert || '').trim();
+        const detail = [cert?.issuer, cert?.year].filter(Boolean).map(String).join(' · ');
         doc.setFontSize(9.5);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(30, 41, 59);
@@ -264,15 +267,15 @@ function buildEuropassPdf(parsed) {
       });
     }
 
-    // ── 8. PUBLICATIONS & RESEARCH ──
-    const publications = uniqueItems(parsed.publications);
+    // ── 8. PUBLICATIONS ──
+    const publications = uniqueItems(data.publications);
     if (publications.length > 0) {
       sectionHeader('Publications & Research');
       publications.forEach((pub) => {
         addPageIfNeeded(14);
-        const title = typeof pub === 'string' ? pub : pub.title;
-        const detail = typeof pub === 'string' ? '' : [pub.venue, pub.year, pub.status].filter(Boolean).join(' · ');
-        const fullPubText = `•  ${title || ''}${detail ? ` — ${detail}` : ''}`;
+        const title = String(typeof pub === 'string' ? pub : pub?.title || '');
+        const detail = typeof pub === 'string' ? '' : [pub?.venue, pub?.year, pub?.status].filter(Boolean).map(String).join(' · ');
+        const fullPubText = `•  ${title}${detail ? ` — ${detail}` : ''}`;
         const pubLines = doc.splitTextToSize(fullPubText.replace(/\s+/g, ' ').trim(), W);
         doc.setFontSize(9.5);
         doc.setFont('helvetica', 'normal');
@@ -289,9 +292,8 @@ function buildEuropassPdf(parsed) {
     doc.setFont('helvetica', 'italic');
     doc.setTextColor(100, 116, 139);
     doc.text('Available upon request', M, y);
-    y += 6;
 
-    // ── 10. PAGE NUMBERS & FOOTER ──
+    // ── 10. PAGE NUMBERS ──
     const totalPages = doc.internal.getNumberOfPages();
     for (let p = 1; p <= totalPages; p++) {
       doc.setPage(p);

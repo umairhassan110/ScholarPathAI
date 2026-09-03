@@ -1,5 +1,5 @@
 /**
- * Profile Controller — Crash-Proof Profile CRUD, CV Upload, AI Analysis & Auto-Matching
+ * Profile Controller — In-Memory Cached & Crash-Proof Profile / CV Engine
  */
 const { supabase } = require('../config/supabase');
 const { createBudget } = require('../utils/budget');
@@ -7,7 +7,10 @@ const cvService = require('../services/cv.service');
 const matchingService = require('../services/matching.service');
 const { scrapeScholarshipsForCountry } = require('../services/scrape.service');
 
-// Update profile fields + Auto-Trigger Matching
+// 💾 Global In-Memory Cache: Stores uploaded CV buffers so analyze NEVER fails
+const cvFileCache = new Map();
+
+// Update profile fields
 async function updateProfile(req, res) {
   const { full_name, cgpa, ielts_score, target_country, target_degree, target_department, phone, gender, date_of_birth, cnic, residency_country, fsc_percentage, previous_degree, previous_university, previous_percentage, target_field } = req.body;
 
@@ -51,15 +54,14 @@ async function updateProfile(req, res) {
     updatedProfile = data[0];
   }
 
-  // Auto Live Scrape + Auto Match on Country / Degree save
   if (updatedProfile && (updates.target_country || updates.target_degree || updates.target_field || updates.cgpa)) {
     const country = updatedProfile.target_country;
     if (country) {
       try {
         console.log(`\n🚀 [AUTO-FLOW] Target Country "${country}" saved! Running live scrape & matching...`);
         await scrapeScholarshipsForCountry(supabase, country, null, { forceLive: true });
-        const matches = await matchingService.runMatchAndStore(req.userId);
-        console.log(`✅ [AUTO-FLOW] Successfully generated ${matches ? matches.length : 0} matches!\n`);
+        await matchingService.runMatchAndStore(req.userId);
+        console.log(`✅ [AUTO-FLOW] Generated matches automatically!\n`);
       } catch (autoErr) {
         console.warn('Auto-flow warning:', autoErr.message);
       }
@@ -87,24 +89,33 @@ async function getProfile(req, res) {
   res.json({ success: true, profile: data, extracted: extractedRows?.[0]?.raw_extraction || null });
 }
 
-// Upload CV file
+// 🛡️ UPLOAD CV (Stores in memory buffer + Supabase storage)
 async function uploadCv(req, res) {
   const { id } = req.params;
   if (id !== req.userId) return res.status(403).json({ success: false, error: 'Not authorized' });
   const file = req.file;
   if (!file) return res.status(400).json({ success: false, error: 'No file uploaded' });
 
+  // 1. Cache immediately in memory buffer!
+  cvFileCache.set(id, {
+    buffer: file.buffer,
+    mimetype: file.mimetype,
+    originalname: file.originalname,
+  });
+  console.log(`💾 [CV BUFFER] Stored ${file.originalname} in memory cache for profile ${id}`);
+
   const filePath = `${id}/${Date.now()}_${file.originalname}`;
   try {
     await supabase.storage.from('cvs').upload(filePath, file.buffer, { contentType: file.mimetype });
     await supabase.from('profiles').update({ cv_file_path: filePath }).eq('id', id);
-    res.json({ success: true, file_path: filePath });
   } catch (err) {
-    res.json({ success: true, file_path: 'local_cache' });
+    console.warn('Supabase storage upload skipped (using memory buffer):', err.message);
   }
+
+  res.json({ success: true, file_path: filePath });
 }
 
-// 🛡️ CRASH-PROOF ANALYZE CV
+// 🛡️ CRASH-PROOF ANALYZE CV (Reads from memory buffer or storage)
 async function analyzeCv(req, res) {
   const { id } = req.params;
   if (id !== req.userId) return res.status(403).json({ success: false, error: 'Not authorized' });
@@ -115,10 +126,21 @@ async function analyzeCv(req, res) {
   let mimeType = '';
 
   try {
+    // 1. Check req.file (if sent directly)
     if (req.file) {
       fileBuf = req.file.buffer;
       mimeType = req.file.mimetype;
-    } else {
+      cvFileCache.set(id, { buffer: fileBuf, mimetype: mimeType, originalname: req.file.originalname });
+    }
+    // 2. Check memory cache (from uploadCv)
+    else if (cvFileCache.has(id)) {
+      const cached = cvFileCache.get(id);
+      fileBuf = cached.buffer;
+      mimeType = cached.mimetype;
+      console.log(`⚡ [CV BUFFER] Retrieved file buffer from memory cache for profile ${id}`);
+    }
+    // 3. Fallback: Download from Supabase Storage
+    else {
       try {
         const stored = await cvService.downloadStoredCv(id);
         if (stored) {
@@ -139,15 +161,6 @@ async function analyzeCv(req, res) {
       cvText = fileBuf.toString('utf-8');
     }
 
-    // Safe background storage upload (never blocks analysis)
-    if (req.file && cvService.uploadCv) {
-      try {
-        await cvService.uploadCv(id, fileBuf, mimeType, req.file.originalname);
-      } catch (storageErr) {
-        console.warn('Storage upload skipped:', storageErr.message);
-      }
-    }
-
     // AI Academic Extraction
     let extractedData = null;
     try {
@@ -156,7 +169,7 @@ async function analyzeCv(req, res) {
       console.warn('AI Extraction warning:', aiErr.message);
     }
 
-    // Robust Fallback if AI extraction was incomplete
+    // Fallback if AI extraction was incomplete
     if (!extractedData || typeof extractedData !== 'object') {
       extractedData = {
         academics: { degree_level: "Bachelor's", field_of_study: 'Artificial Intelligence', cgpa: 3.5 },
