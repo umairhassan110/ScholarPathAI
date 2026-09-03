@@ -1,0 +1,5 @@
+- Pages are organized as one React function component per route/tab inside `src/pages/`, each exporting a default component rendered by `App.jsx` or the Dashboard tab map.
+- Reusable visual pieces are extracted as small named components in `src/components/UI.jsx` and consumed via destructured props (e.g. `Card`, `Button`, `Badge`, `SocialIcon`).
+- All user-visible text and datasets (universities, scholarships, attestation steps, FAQs) are kept in `src/data/mockData.js` and imported by pages rather than hard-coded inline.
+- Styling relies exclusively on Tailwind utility classes using the project's custom `sp-*` color/token palette instead of custom CSS rules.
+- Dashboard tabs are driven by a declarative `TABS` array plus a `tabContent` object keyed by tab id, keeping navigation and rendering decoupled.

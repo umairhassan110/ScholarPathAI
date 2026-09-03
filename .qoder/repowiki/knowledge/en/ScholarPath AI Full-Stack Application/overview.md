@@ -1,0 +1,1 @@
+Full-stack student scholarship matching platform pairing a React/Vite frontend with an Express/Supabase backend that handles authentication, profile management, scholarship matching, and attestation workflows.

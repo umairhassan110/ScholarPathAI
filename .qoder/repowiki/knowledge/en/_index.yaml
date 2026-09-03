@@ -1,0 +1,39 @@
+# 知识卡导出索引文件
+schema_version: 1
+locale: en-US
+branch: Q0DeR-MaG1C-BrAnCh-Fo2-NoN-GiT-Or-No-C0MmIt
+nodes_managed: true
+exported_at: "2026-08-28T15:11:41Z"
+modules:
+    "":
+        dir_name: ScholarPath AI Full-Stack Application
+        title: ScholarPath AI Full-Stack Application
+        scope:
+            - aischolarpath-backend-main/
+            - scholarpath-frontend (2)/
+        source_files: []
+        children:
+            - backend
+            - frontend
+        depends_on: []
+        related_to: []
+    backend:
+        dir_name: ScholarPathAI Backend API
+        title: ScholarPathAI Backend API
+        scope:
+            - aischolarpath-backend-main/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: frontend
+    frontend:
+        dir_name: ScholarPath AI Frontend (React + Vite)
+        title: ScholarPath AI Frontend (React + Vite)
+        scope:
+            - scholarpath-frontend (2)/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend

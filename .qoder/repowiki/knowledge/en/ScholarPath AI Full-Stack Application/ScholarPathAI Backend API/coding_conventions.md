@@ -1,0 +1,5 @@
+- Every route returns a uniform `{ success: boolean, ... }` JSON envelope, with errors reported via an `error` field and HTTP status codes set accordingly.
+- Protected routes enforce ownership by comparing `req.params.id` or `req.params.profileId` against `req.userId` (populated by `authenticateToken`) and returning 403 with `'Not authorized'` on mismatch.
+- Supabase queries use the `.from(...).select(...).eq(...)` fluent builder pattern and consistently check `error` before accessing `data`.
+- Optional update fields are collected into an `updates` object and only assigned when defined, enabling partial PATCH requests.
+- Static reference data (language-prep guides, attestation authority steps) is stored as in-memory JavaScript objects keyed by uppercase identifiers and served via parameterized GET routes.

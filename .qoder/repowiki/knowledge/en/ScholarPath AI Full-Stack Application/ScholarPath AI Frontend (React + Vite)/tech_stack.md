@@ -1,0 +1,1 @@
+React 19 + ReactDOM with Vite 8 as the build tool; react-router-dom v7 for client routing; Tailwind CSS 3 with PostCSS/Autoprefixer; Oxlint for linting; no state-management library (local `useState` per component).

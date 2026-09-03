@@ -1,0 +1,1 @@
+Node.js + Express 5, Supabase JS client for Postgres and Storage, bcrypt for password hashing, jsonwebtoken for sessionless auth, multer for multipart uploads, cheerio (unused in current code), undici for HTTP client connection pooling, dotenv for environment configuration.

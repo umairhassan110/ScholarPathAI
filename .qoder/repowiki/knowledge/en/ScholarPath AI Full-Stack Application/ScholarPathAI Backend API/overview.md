@@ -1,0 +1,1 @@
+Express.js REST API that manages student profiles, scholarship matching, application tracking, attestation workflows, and document tools backed by a Supabase database.

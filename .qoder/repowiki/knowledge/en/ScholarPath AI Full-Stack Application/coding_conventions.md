@@ -1,0 +1,4 @@
+- All user-scoped routes enforce ownership by comparing the authenticated req.userId (from JWT) against path/query parameters before performing DB writes or reads.
+- Every API response wraps results in a { success, ... } envelope and returns error details via an error field on failure.
+- Protected routes share a single authenticateToken middleware rather than per-route token verification logic.
+- Static reference data (language-prep guides, attestation authority steps) is embedded directly in index.js and served through dedicated GET endpoints keyed by string identifiers.

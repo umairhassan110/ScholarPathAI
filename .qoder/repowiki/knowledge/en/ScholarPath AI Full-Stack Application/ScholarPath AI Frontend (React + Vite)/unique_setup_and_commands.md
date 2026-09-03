@@ -1,0 +1,1 @@
+Development server: `npm run dev` (Vite); production build: `npm run build`; preview built output: `npm run preview`; lint: `npm run lint` (Oxlint). No backend is required to run locally — all data is mocked in `src/data/mockData.js`.

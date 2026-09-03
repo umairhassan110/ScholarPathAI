@@ -1,0 +1,1 @@
+Backend requires SUPABASE_URL, SUPABASE_KEY, and JWT_SECRET environment variables at startup and exits if any are missing; frontend runs as a separate Vite dev server with no build-time dependency on the backend URL.

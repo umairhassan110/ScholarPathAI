@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
+  <rect width="40" height="40" rx="10" fill="#125BC9"/>
+  <!-- Graduation cap -->
+  <path d="M20 9L7 16l13 7 13-7L20 9z" fill="white"/>
+  <!-- Cap body (left side) -->
+  <path d="M7 16v7l13 7V23L7 16z" fill="white" opacity="0.6"/>
+  <!-- Cap body (right side) -->
+  <path d="M33 16v7l-13 7V23l13-7z" fill="white" opacity="0.8"/>
+  <!-- Tassel -->
+  <circle cx="20" cy="30" r="1.5" fill="white"/>
+  <path d="M20 23v7" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Curved trajectory from cap (like a path/journey) -->
+  <path d="M28 14c3 2 5 6 4 11" stroke="white" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.9"/>
+  <!-- Small paper plane at end of trajectory -->
+  <path d="M30 26l4-2-2 4-2-2z" fill="white" opacity="0.9"/>
+</svg>

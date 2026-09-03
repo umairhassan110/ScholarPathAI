@@ -1,0 +1,1 @@
+Requires `SUPABASE_URL`, `SUPABASE_KEY`, and `JWT_SECRET` environment variables; the process exits immediately if any are missing. TLS certificate verification is disabled globally via `process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'`.

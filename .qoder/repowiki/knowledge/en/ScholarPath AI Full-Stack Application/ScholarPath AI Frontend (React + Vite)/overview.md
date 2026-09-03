@@ -1,0 +1,1 @@
+Client-side React application for the ScholarPath AI student matching platform, providing a landing page and a tabbed dashboard that displays university/scholarship matches, document attestation guidance, CV building, and FAQ content.

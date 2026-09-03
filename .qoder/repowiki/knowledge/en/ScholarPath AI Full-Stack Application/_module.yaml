@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: ""
+title: ScholarPath AI Full-Stack Application
+scope:
+    - aischolarpath-backend-main/
+    - scholarpath-frontend (2)/
+source_files: []
+depends_on: []
+related_to: []

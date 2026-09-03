@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: backend
+title: ScholarPathAI Backend API
+scope:
+    - aischolarpath-backend-main/
+source_files: []
+depends_on: []
+related_to:
+    - path: frontend

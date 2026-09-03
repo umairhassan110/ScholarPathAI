@@ -1,0 +1,1 @@
+Express.js + Supabase (PostgreSQL + Storage) for the backend; React + Vite + Tailwind CSS for the frontend; JWT (jsonwebtoken) for sessionless auth shared between both sides via the Authorization header.
