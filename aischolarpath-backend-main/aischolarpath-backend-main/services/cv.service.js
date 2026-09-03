@@ -284,7 +284,7 @@ function buildEuropassPdf(parsed) {
 
         if (proj.tech) {
           doc.setFontSize(8.5);
-      doc.setFont('helvetica', 'italic');
+                doc.setFont('helvetica', 'italic');
       doc.setTextColor(100, 116, 139);
       doc.text(` [${proj.tech}]`, M + doc.getTextWidth(`•  ${proj.name}`) + 2, y);
     }
@@ -315,7 +315,7 @@ if (Object.keys(skills).length > 0) {
     doc.setTextColor(30, 41, 59);
     doc.text(`•  ${label}: `, M, y);
     const labelW = doc.getTextWidth(`•  ${label}: `);
-    
+
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(51, 65, 85);
     const lines = doc.splitTextToSize(String(val), W - labelW);
