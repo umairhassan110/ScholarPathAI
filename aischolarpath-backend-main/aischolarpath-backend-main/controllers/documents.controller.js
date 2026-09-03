@@ -1,58 +1,71 @@
 /**
- * Documents Controller — CV Europass conversion + recommendation letters
- *
- * Heavy logic (parsing, AI, PDF rendering) lives in cv.service with a
- * deadline budget; this controller only handles HTTP concerns.
+ * Documents Controller — CV Europass conversion + Recommendation letters
  */
 const { createBudget } = require('../utils/budget');
 const cvService = require('../services/cv.service');
 const { askAI } = require('../services/ai.service');
+const { supabase } = require('../config/supabase');
+const matchingService = require('../services/matching.service');
+const { scrapeScholarshipsForCountry } = require('../services/scrape.service');
 
 // CV to Europass converter - REAL profile data + AI-structured + full PDF
 async function convertCv(req, res) {
   const budget = createBudget();
-  const profileId = req.userId;
-  const { supabase } = require('../config/supabase');
+  const profileId = req.body?.profile_id || req.userId;
 
-  // Fetch profile data from DB
   let profile = null;
   try {
     const { data } = await supabase.from('profiles').select('*').eq('id', profileId).single();
     profile = data;
-  } catch (e) { console.error('Profile fetch failed:', e.message); }
+  } catch (e) {
+    console.error('Profile fetch failed:', e.message);
+  }
 
-  // Get CV text from uploaded file OR Supabase storage
   let cvText = '';
   const file = req.file;
-
   if (file) {
     cvText = await cvService.extractTextFromFile(file.buffer, file.mimetype, { maxChars: 6000 });
-    if (profileId && cvText && !cvText.startsWith('[')) {
-      await cvService.uploadCv(profileId, file.buffer, file.mimetype, file.originalname);
-    }
   } else if (profile?.cv_file_path) {
-    // Download from storage
     const stored = await cvService.downloadStoredCv(profileId);
     if (stored) {
       cvText = await cvService.extractTextFromFile(stored.buffer, stored.mimeType, { maxChars: 6000 });
     }
   }
 
-  const [extracted, parsed] = await Promise.all([
-    cvService.extractAcademicData(cvText, budget),
-    cvService.parseEuropassSections(cvText, budget),
-  ]);
-  if (profileId && cvText && !cvText.startsWith('[')) {
-    await cvService.persistExtractedData(profileId, extracted);
+  const parsed = await cvService.parseEuropassSections(cvText, budget);
+
+  // 🚀 SAVE EXTRACTED DATA TO DATABASE!
+  if (profileId && parsed) {
+    try {
+      console.log('💾 [CV PERSIST] Saving extracted CV data to database...');
+      await supabase.from('extracted_profile_data').insert([{
+        profile_id: profileId,
+        raw_extraction: parsed,
+      }]);
+
+      const updates = {};
+      if (parsed.education?.[0]?.cgpa && !profile?.cgpa) updates.cgpa = parsed.education[0].cgpa;
+      if (parsed.full_name && !profile?.full_name) updates.full_name = parsed.full_name;
+      if (parsed.field_of_study && !profile?.field_of_study) updates.field_of_study = parsed.field_of_study;
+      if (Object.keys(updates).length > 0) {
+        await supabase.from('profiles').update(updates).eq('id', profileId);
+      }
+
+      if (profile?.target_country) {
+        await scrapeScholarshipsForCountry(supabase, profile.target_country, null, { forceLive: true });
+      }
+      await matchingService.runMatchAndStore(profileId);
+      console.log('✅ [CV PERSIST] Saved to database and matches computed!');
+    } catch (dbErr) {
+      console.warn('DB Persist warning:', dbErr.message);
+    }
   }
 
-  // Build proper Europass PDF
   const pdfBase64 = cvService.buildEuropassPdf(parsed);
 
   res.json({
     success: true,
     message: 'CV converted to Europass format.',
-    extracted,
     suggestions: parsed.suggestions || [],
     pdf_base64: pdfBase64,
     summary: parsed.summary || '',
@@ -60,7 +73,6 @@ async function convertCv(req, res) {
     education: parsed.education || [],
     certifications: parsed.certifications || [],
     projects: parsed.projects || [],
-    publications: parsed.publications || [],
     achievements: parsed.achievements || [],
     skills: parsed.skills || {},
     languages: parsed.languages || [],
@@ -69,13 +81,9 @@ async function convertCv(req, res) {
   });
 }
 
-// Recommendation letter generator - AI Agent polishes/generates letters
+// Recommendation letter generator
 async function generateLetter(req, res) {
   const file = req.file;
-
-  // Accept EITHER an uploaded draft file OR pasted draft text via
-  // req.body.draft_text. Neither is required: an empty request generates a
-  // fresh letter from scratch (handled by the prompt's else-branch below).
   let draftText = '';
   if (file) {
     if (file.mimetype === 'text/plain') {
@@ -87,20 +95,14 @@ async function generateLetter(req, res) {
     draftText = req.body.draft_text;
   }
 
-  const letterPrompt = `You are an expert academic recommendation letter writer.
-${draftText
-    ? `Here is a draft recommendation letter:\n"${draftText.slice(0, 2000)}"\n\nPolish and improve this letter. Make it more professional, add stronger language about the candidate's abilities, and ensure a compelling closing.`
-    : 'Generate a professional academic recommendation letter template for a student applying to a Master\'s program abroad.'}
-
-Write a polished, professional recommendation letter (about 200-300 words). Return ONLY the letter text, no JSON, no markdown.`;
+  const letterPrompt = `You are an expert academic recommendation letter writer. ${
+    draftText
+      ? `Here is a draft recommendation letter:\n"${draftText.slice(0, 2000)}"\n\nPolish and improve this letter.`
+      : 'Generate a professional academic recommendation letter template for a student applying to a Master\'s program abroad.'
+  } Write a polished, professional recommendation letter (about 200-300 words). Return ONLY the letter text, no JSON, no markdown.`;
 
   const letterText = await askAI(letterPrompt, { domain: 'chatbot' });
-
-  res.json({
-    success: true,
-    message: 'Letter generated.',
-    letter_text: letterText
-  });
+  res.json({ success: true, message: 'Letter generated.', letter_text: letterText });
 }
 
 module.exports = { convertCv, generateLetter };

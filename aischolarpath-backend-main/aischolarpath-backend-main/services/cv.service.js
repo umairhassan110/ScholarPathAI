@@ -7,8 +7,8 @@ function buildEuropassPdf(parsed) {
   try {
     const doc = new jsPDF();
     doc.setCharSpace(0);
-    const M = 15; // Left & Right margin
-    const W = 180; // Full printable width (210 - 2*15)
+    const M = 15;
+    const W = 180;
     let y = 18;
 
     function addPageIfNeeded(needed) {
@@ -21,8 +21,7 @@ function buildEuropassPdf(parsed) {
     function sectionHeader(title) {
       addPageIfNeeded(16);
       y += 3;
-      // Modern Europass Blue Header line
-      doc.setDrawColor(18, 91, 201); // #125BC9
+      doc.setDrawColor(18, 91, 201);
       doc.setLineWidth(0.6);
       doc.line(M, y, M + W, y);
       y += 4;
@@ -49,7 +48,7 @@ function buildEuropassPdf(parsed) {
     const cvName = (parsed.full_name || 'UMAIR HASSAN').toUpperCase();
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(15, 23, 42); // Navy Dark
+    doc.setTextColor(15, 23, 42);
     doc.text(cvName, M, y);
     y += 6;
 
@@ -185,7 +184,6 @@ function buildEuropassPdf(parsed) {
           if (!pTech && parts[1]) pTech = parts[1];
         }
 
-        // Clean description from repeating project name
         if (pDesc.toLowerCase().startsWith(pName.toLowerCase())) {
           pDesc = pDesc.slice(pName.length).replace(/^[|:–—\s]+/, '').trim();
         }
