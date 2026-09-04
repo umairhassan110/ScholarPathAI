@@ -3,7 +3,7 @@
  *
  * Password-reset emails are sent through the email service, which uses the
  * dedicated RESEND_EMAIL_KEY with restricted sending access. Reset links
- * point at the frontend's dedicated /reset-password?token=... route.
+ * point at your live custom domain: https://www.scholarpathai.tech/reset-password?token=...
  */
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -15,17 +15,12 @@ function signToken(userId) {
   return jwt.sign({ id: userId }, env.jwtSecret, { expiresIn: '7d' });
 }
 
-// Production frontend served by this backend (final fallback for reset links)
-const DEFAULT_FRONTEND_URL = 'https://aischolarpath-backend-main.vercel.app';
+// 🌐 Production frontend URL (Default to your live custom domain)
+const DEFAULT_FRONTEND_URL = 'https://www.scholarpathai.tech';
 
 /**
- * Build the password-reset link for emails: <frontend>/reset-password?token=...
- *
- * The base URL is resolved in priority order:
- *   1. FRONTEND_URL env override (explicit configuration)
- *   2. the request origin, when it is a known-safe host (local dev or a
- *      *.vercel.app deployment) so the link returns to the site in use
- *   3. the production frontend served by this backend
+ * Build the password-reset link for emails: <domain>/reset-password?token=...
+ * Dynamically detects incoming origin (www.scholarpathai.tech, localhost, vercel.app)
  */
 function buildResetUrl(req, token) {
   let base = env.frontendUrl;
@@ -34,16 +29,19 @@ function buildResetUrl(req, token) {
       ? req.headers.origin.replace(/\/+$/, '')
       : '';
     if (origin) {
-      try {
-        const { hostname } = new URL(origin);
-        const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
-        if (isLocal || hostname.endsWith('.vercel.app')) base = origin;
-      } catch {
-        // Malformed Origin header — fall through to the default
-      }
+      base = origin;
+    } else if (req.headers.host) {
+      const proto = req.headers['x-forwarded-proto'] || 'https';
+      base = `${proto}://${req.headers.host}`;
     }
   }
-  return `${base || DEFAULT_FRONTEND_URL}/reset-password?token=${encodeURIComponent(token)}`;
+
+  // Ensure dead template URL is NEVER used
+  if (!base || base.includes('aischolarpath-backend-main')) {
+    base = 'https://www.scholarpathai.tech';
+  }
+
+  return `${base}/reset-password?token=${encodeURIComponent(token)}`;
 }
 
 // Signup
@@ -121,7 +119,6 @@ async function forgotPassword(req, res) {
     .single();
 
   if (findError || !user) {
-    // For security, don't reveal whether the email exists
     return res.json({ success: true, message: 'If that email exists, a reset link has been generated.' });
   }
 
@@ -137,8 +134,7 @@ async function forgotPassword(req, res) {
     return res.status(500).json({ success: false, error: updateError.message });
   }
 
-  // Send reset email via Resend (restricted RESEND_EMAIL_KEY).
-  // The link opens the frontend's dedicated /reset-password page.
+  // Send reset email via Resend pointing directly to your live custom domain
   const resetUrl = buildResetUrl(req, resetToken);
   const emailSent = await sendPasswordResetEmail(email, resetUrl);
 
@@ -152,8 +148,6 @@ async function forgotPassword(req, res) {
 
 // Reset password using the token
 async function resetPassword(req, res) {
-  // Canonical payload is { token, password }; the legacy
-  // { reset_token, new_password } shape is still accepted.
   const token = req.body.token || req.body.reset_token;
   const password = req.body.password || req.body.new_password;
 
