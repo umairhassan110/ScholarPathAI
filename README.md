@@ -3,7 +3,7 @@
 > **AI-Powered Scholarship Matching & University Discovery Platform for Students**  
 > Fill your profile, upload your CV, and discover tailored scholarships and university rankings worldwide — with clear eligibility scoring, automated live web scraping, and Groq-accelerated AI assistance.
 
-🌐 **Live Website:** [scholar-path-ai-eta.vercel.app](https://scholar-path-ai-eta.vercel.app/)  
+🌐 **Live Website:**https://www.scholarpathai.tech/
 📂 **GitHub Repository:** [github.com/umairhassan110/ScholarPathAI](https://github.com/umairhassan110/ScholarPathAI)
 
 ---
