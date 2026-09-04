@@ -1,6 +1,6 @@
 /**
- * CV Service — 100% Dynamic Real-Time Extraction + Clean Professional Monochrome PDF
- * Zero hardcoding. Zero blue color. Proper margins and spacing.
+ * CV Service — 100% Dynamic Real-Time Extraction + Pixel-Perfect Monochrome PDF Builder
+ * Zero hardcoded data. Zero blue colors. Standard line-height spacing throughout.
  */
 const pdf = require('pdf-parse');
 const mammoth = require('mammoth');
@@ -178,7 +178,7 @@ async function parseEuropassSections(cvText, budget) {
   return extractAcademicData(cvText, budget);
 }
 
-// 7. 🏛️ ELEGANT PROPORTIONED EUROPASS PDF BUILDER (NO BLUE, PROPER SPACING)
+// 7. 🏛️ ELEGANT PROPORTIONED EUROPASS PDF BUILDER (STANDARD UNIFIED SPACING)
 function buildEuropassPdf(parsed) {
   try {
     const jspdfModule = require('jspdf');
@@ -186,21 +186,35 @@ function buildEuropassPdf(parsed) {
     const doc = new DocClass();
 
     const M = 18; // Margin left/right
-    const W = 174; // Printable Width
+    const W = 174; // Printable Width (210 - 36)
     let y = 18;
 
     function addPageIfNeeded(needed) {
-      if (y + needed > 270) {
+      if (y + needed > 268) {
         doc.addPage();
         y = 18;
       }
     }
 
+    // Standard Deterministic Multiline Printer (Eliminates overlap & weird spacing!)
+    function printLines(text, x, width, size, step) {
+      if (!text) return;
+      doc.setFontSize(size || 8.5);
+      const clean = String(text).replace(/\s+/g, ' ').trim();
+      const lines = doc.splitTextToSize(clean, width);
+      const st = step || 4.2;
+      for (const line of lines) {
+        addPageIfNeeded(st + 2);
+        doc.text(line, x, y);
+        y += st;
+      }
+    }
+
     // Clean, Minimalist Slate/Black Header (NO BLUE)
     function sectionHeader(title) {
-      addPageIfNeeded(16);
+      addPageIfNeeded(18);
       y += 4;
-      doc.setDrawColor(203, 213, 225); // Subtle slate-gray line
+      doc.setDrawColor(203, 213, 225); // Subtle neutral gray line
       doc.setLineWidth(0.4);
       doc.line(M, y, M + W, y);
       y += 4.5;
@@ -236,44 +250,35 @@ function buildEuropassPdf(parsed) {
     doc.line(M, y, M + W, y);
     y += 5;
 
-    // ── 2. CONTACT INFORMATION ──
+    // ── 2. CONTACT DETAILS (Clean bullet format, zero collision) ──
     doc.setFontSize(8.5);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(71, 85, 105);
 
-    const col1 = M;
-    const col2 = M + 90;
-    let yCol1 = y;
-    let yCol2 = y;
-
-    if (data.address) {
-      doc.text('Location: ' + String(data.address).split('|')[0].trim(), col1, yCol1);
-      yCol1 += 4;
-    }
-    if (data.email) {
-      doc.text('Email: ' + String(data.email).trim(), col1, yCol1);
-      yCol1 += 4;
-    }
-    if (data.phone) {
-      doc.text('Phone: ' + String(data.phone).trim(), col2, yCol2);
-      yCol2 += 4;
-    }
-    if (data.linkedin) {
-      doc.text('LinkedIn: ' + String(data.linkedin).trim(), col2, yCol2);
-      yCol2 += 4;
+    const contactParts1 = [];
+    if (data.address) contactParts1.push('Location: ' + String(data.address).split('|')[0].trim());
+    if (data.phone) contactParts1.push('Phone: ' + String(data.phone).trim());
+    if (contactParts1.length > 0) {
+      doc.text(contactParts1.join('   •   '), M, y);
+      y += 4.5;
     }
 
-    y = Math.max(yCol1, yCol2) + 2;
+    const contactParts2 = [];
+    if (data.email) contactParts2.push('Email: ' + String(data.email).trim());
+    if (data.linkedin) contactParts2.push('LinkedIn: ' + String(data.linkedin).trim());
+    if (contactParts2.length > 0) {
+      doc.text(contactParts2.join('   •   '), M, y);
+      y += 4.5;
+    }
+    y += 2;
 
-    // ── 3. SUMMARY ──
+    // ── 3. SUMMARY / ABOUT ME ──
     if (data.summary) {
       sectionHeader('About Me');
-      doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(51, 65, 85);
-      const sumLines = doc.splitTextToSize(String(data.summary).replace(/\s+/g, ' ').trim(), W);
-      doc.text(sumLines, M, y);
-      y += sumLines.length * 4.2 + 2;
+      printLines(data.summary, M, W, 9, 4.5);
+      y += 2;
     }
 
     // ── 4. WORK EXPERIENCE (Dynamic from CV) ──
@@ -295,7 +300,7 @@ function buildEuropassPdf(parsed) {
           const pStr = String(job.period);
           doc.text(pStr, M + W - doc.getTextWidth(pStr), y);
         }
-        y += 4;
+        y += 4.5;
 
         const employer = [job?.employer, job?.company, job?.city].filter(Boolean).map(String).join(' · ');
         if (employer) {
@@ -303,17 +308,14 @@ function buildEuropassPdf(parsed) {
           doc.setFont('helvetica', 'normal');
           doc.setTextColor(71, 85, 105);
           doc.text(employer, M, y);
-          y += 4;
+          y += 4.5;
         }
 
         if (job?.description) {
-          const descLines = doc.splitTextToSize(String(job.description).replace(/\s+/g, ' ').trim(), W - 4);
-          doc.setFontSize(8.5);
           doc.setTextColor(71, 85, 105);
-          doc.text(descLines, M + 3, y);
-          y += descLines.length * 3.8 + 2;
+          printLines(job.description, M + 3, W - 6, 8.5, 4.2);
         }
-        y += 1.5;
+        y += 3;
       });
     }
 
@@ -336,7 +338,7 @@ function buildEuropassPdf(parsed) {
           const pStr = String(edu.period);
           doc.text(pStr, M + W - doc.getTextWidth(pStr), y);
         }
-        y += 4;
+        y += 4.5;
 
         const inst = [edu?.institution, edu?.university, edu?.city, edu?.cgpa ? 'CGPA: ' + edu.cgpa : ''].filter(Boolean).map(String).join(' · ');
         if (inst) {
@@ -348,17 +350,14 @@ function buildEuropassPdf(parsed) {
         }
 
         if (edu?.description) {
-          const descLines = doc.splitTextToSize(String(edu.description).replace(/\s+/g, ' ').trim(), W - 4);
-          doc.setFontSize(8.5);
           doc.setTextColor(71, 85, 105);
-          doc.text(descLines, M + 3, y);
-          y += descLines.length * 3.8 + 2;
+          printLines(edu.description, M + 3, W - 6, 8.5, 4.2);
         }
-        y += 1.5;
+        y += 3;
       });
     }
 
-    // ── 6. PROJECTS (Only if projects exist) ──
+    // ── 6. PROJECTS (Dynamic from CV) ──
     const projList = Array.isArray(data.projects) ? data.projects : [];
     if (projList.length > 0) {
       sectionHeader('Projects');
@@ -389,21 +388,17 @@ function buildEuropassPdf(parsed) {
           doc.setTextColor(100, 116, 139);
           doc.text(' [' + pTech + ']', M + doc.getTextWidth('•  ' + pName) + 2, y);
         }
-        y += 4;
+        y += 4.5;
 
         if (pDesc) {
-          const descLines = doc.splitTextToSize(pDesc.replace(/\s+/g, ' ').trim(), W - 6);
-          doc.setFontSize(8.5);
-          doc.setFont('helvetica', 'normal');
           doc.setTextColor(71, 85, 105);
-          doc.text(descLines, M + 4, y);
-          y += descLines.length * 3.8 + 2;
+          printLines(pDesc, M + 4, W - 8, 8.5, 4.2);
         }
-        y += 1.5;
+        y += 3;
       });
     }
 
-    // ── 7. SKILLS ──
+    // ── 7. SKILLS (Dynamic from CV) ──
     const skills = data.skills || {};
     const skillEntries = [];
     if (typeof skills === 'string' && skills.trim()) {
@@ -432,13 +427,12 @@ function buildEuropassPdf(parsed) {
 
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(71, 85, 105);
-        const lines = doc.splitTextToSize(String(se.val).replace(/\s+/g, ' ').trim(), W - labelW);
-        doc.text(lines, M + labelW, y);
-        y += lines.length * 3.8 + 2;
+        printLines(se.val, M + labelW, W - labelW, 9, 4.2);
+        y += 2;
       });
     }
 
-    // ── 8. CERTIFICATIONS (Only if present) ──
+    // ── 8. CERTIFICATIONS (Dynamic from CV) ──
     const certList = Array.isArray(data.certifications) ? data.certifications : [];
     if (certList.length > 0) {
       sectionHeader('Certifications & Awards');
@@ -460,7 +454,7 @@ function buildEuropassPdf(parsed) {
       });
     }
 
-    // ── 9. PUBLICATIONS (Only if present) ──
+    // ── 9. PUBLICATIONS (Dynamic from CV) ──
     const pubList = Array.isArray(data.publications) ? data.publications : [];
     if (pubList.length > 0) {
       sectionHeader('Publications & Research');
@@ -471,10 +465,8 @@ function buildEuropassPdf(parsed) {
         doc.setFontSize(8.5);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(71, 85, 105);
-        const pubText = '•  ' + title + (detail ? ' — ' + detail : '');
-        const pubLines = doc.splitTextToSize(pubText, W);
-        doc.text(pubLines, M, y);
-        y += pubLines.length * 3.8 + 2;
+        printLines('•  ' + title + (detail ? ' — ' + detail : ''), M, W, 8.5, 4.2);
+        y += 2;
       });
     }
 
@@ -488,15 +480,19 @@ function buildEuropassPdf(parsed) {
       doc.text(String(data.references).trim(), M, y);
     }
 
-    // ── 11. CLEAN FOOTER (NO CUT-OFF) ──
+    // ── 11. FOOTER (Guaranteed Clean, No Cut-Off) ──
     const totalPages = doc.internal.getNumberOfPages();
     for (let p = 1; p <= totalPages; p++) {
       doc.setPage(p);
-      doc.setFontSize(7.5);
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.3);
+      doc.line(M, 276, M + W, 276);
+
+      doc.setFontSize(8);
       doc.setTextColor(148, 163, 184);
-      doc.text('ScholarPath AI · Europass CV', M, 285);
-      const pStr = 'Page ' + p + ' of ' + totalPages;
-      doc.text(pStr, M + W - doc.getTextWidth(pStr), 285);
+      doc.text('ScholarPath AI · Europass CV', M, 281);
+      const pageStr = 'Page ' + p + ' of ' + totalPages;
+      doc.text(pageStr, M + W - doc.getTextWidth(pageStr), 281);
     }
 
     return doc.output('datauristring');
