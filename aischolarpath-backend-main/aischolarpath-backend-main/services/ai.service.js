@@ -1,8 +1,20 @@
 /**
- * AI Service — Groq LPU Integration with Auto Think-Tag Suppression
- * Strips <think>...</think> reasoning blocks completely so users only see clean answers.
+ * AI Service — Groq LPU Integration with Think-Tag Suppression & Domain Checks
+ * Exports isDomainConfigured for Smart Agent + strips <think> tags for clean chat.
  */
-const { getClient, MODEL_CHAIN } = require('../config/ai');
+const { getClient, MODEL_CHAIN, isDomainConfigured: isConfigured } = require('../config/ai');
+
+// 🛡️ Helper required by Smart Agent to check domain configuration
+function isDomainConfigured(domain) {
+  if (typeof isConfigured === 'function') {
+    return isConfigured(domain);
+  }
+  try {
+    return !!getClient(domain);
+  } catch (e) {
+    return false;
+  }
+}
 
 // 1. Non-Streaming AI Call (Strips <think> tags)
 async function askAI(prompt, options = {}) {
@@ -29,7 +41,6 @@ async function askAI(prompt, options = {}) {
         temperature: 0.7,
       };
 
-      // Tell Groq to hide internal thinking tokens
       try {
         params.reasoning_format = 'hidden';
       } catch (e) { /* ignore */ }
@@ -68,7 +79,7 @@ async function askAI(prompt, options = {}) {
   throw lastError || new Error('All AI models in fallback chain failed.');
 }
 
-// 2. 🚀 STREAMING CHATBOT (FILTERS OUT <think>...</think> IN REAL-TIME)
+// 2. STREAMING CHATBOT (FILTERS OUT <think>...</think> IN REAL-TIME)
 async function streamAI(prompt, res, options = {}) {
   const { domain = 'chatbot', systemInstruction } = options;
   const client = getClient(domain);
@@ -104,7 +115,6 @@ async function streamAI(prompt, res, options = {}) {
         res.flushHeaders();
       }
 
-      // Stream filter: suppresses <think>...</think> tokens completely
       let inThink = false;
       let buffer = '';
 
@@ -178,4 +188,4 @@ async function extractStructured(prompt, schema, options = {}) {
   return askAI(structuredPrompt, { domain, jsonMode: true });
 }
 
-module.exports = { askAI, streamAI, extractStructured };
+module.exports = { askAI, streamAI, extractStructured, isDomainConfigured };
