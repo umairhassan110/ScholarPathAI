@@ -139,8 +139,7 @@ Return ONLY valid JSON (no markdown backticks):
 
   return parsed;
 }
-
-// 5. Persist extracted data to Supabase
+// 5. Persist extracted data to Supabase (Target Degree Protected from Overwriting)
 async function persistExtractedData(profileId, extractedData) {
   if (!profileId || !extractedData) return;
 
@@ -149,13 +148,38 @@ async function persistExtractedData(profileId, extractedData) {
     raw_extraction: extractedData,
   }]);
 
+  // Fetch current profile to check if user already selected a target_degree
+  let currentProfile = null;
+  try {
+    const { data: prof } = await supabase.from('profiles').select('target_degree, field_of_study').eq('id', profileId).single();
+    currentProfile = prof;
+  } catch (e) { /* ignore */ }
+
   const updates = {};
   const ac = extractedData.academics || {};
   if (ac.cgpa) updates.cgpa = parseFloat(ac.cgpa) || ac.cgpa;
-  if (ac.degree_level) updates.target_degree = ac.degree_level;
-  if (ac.field_of_study) {
+
+  // 🔒 DEGREE LOCK: CV degree goes to previous_degree, NOT target_degree!
+  if (ac.degree_level) {
+    updates.previous_degree = ac.degree_level;
+    // Only set target_degree if user has NOT chosen one yet!
+    if (!currentProfile?.target_degree) {
+      if (ac.degree_level.toLowerCase().includes('bachelor')) {
+        updates.target_degree = "Master's"; // Natural target for Bachelor's graduate
+      } else if (ac.degree_level.toLowerCase().includes('master')) {
+        updates.target_degree = 'PhD';
+      } else {
+        updates.target_degree = ac.degree_level;
+      }
+    }
+  }
+
+  if (ac.field_of_study && !currentProfile?.field_of_study) {
     updates.field_of_study = ac.field_of_study;
     updates.target_field = ac.field_of_study;
+  }
+  if (extractedData.language?.ielts_score) {
+    updates.ielts_score = parseFloat(extractedData.language.ielts_score) || 6.5;
   }
   if (extractedData.full_name) updates.full_name = extractedData.full_name;
 

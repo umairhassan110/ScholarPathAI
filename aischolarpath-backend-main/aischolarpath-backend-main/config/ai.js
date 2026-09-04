@@ -4,7 +4,7 @@
 const Groq = require('groq-sdk');
 const env = require('./env');
 
-const MODEL_CHAIN = ['openai/gpt-oss-20b', 'qwen/qwen3.6-27b'];
+const MODEL_CHAIN = ['qwen/qwen3.6-27b', 'openai/gpt-oss-20b'];
 
 const AI_DOMAINS = {
   chatbot: {
