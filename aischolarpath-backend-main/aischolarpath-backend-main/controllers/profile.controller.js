@@ -252,6 +252,7 @@ async function getMatches(req, res) {
   res.json({ success: true, matches: enriched });
 }
 
+// Overview/Dashboard summary for a profile (100% Completeness calculation using CV + Manual data)
 async function getOverview(req, res) {
   const { id } = req.params;
   if (id !== req.userId) return res.status(403).json({ success: false, error: 'Not authorized' });
@@ -259,15 +260,47 @@ async function getOverview(req, res) {
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', id).single();
   const { data: matches } = await supabase.from('matches').select('*, scholarships(title, country, deadline), universities(name)').eq('profile_id', id);
 
+  // Read extracted CV data from DB
+  const { data: extRows } = await supabase
+    .from('extracted_profile_data')
+    .select('raw_extraction')
+    .eq('profile_id', id)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  const raw = extRows?.[0]?.raw_extraction || {};
+  const ac = raw.academics || {};
+  const lang = raw.language || {};
+
+  // Check both profile and CV data so it hits 100%
+  const hasCgpa = profile?.cgpa != null || ac.cgpa != null;
+  const hasIelts = profile?.ielts_score != null || lang.ielts_score != null;
+  const hasDegree = profile?.target_degree != null || ac.degree_level != null;
+  const hasCv = profile?.cv_file_path != null || extRows?.length > 0;
+
   const mList = matches || [];
+  const eligibleCount = mList.filter(m => m.status === 'Eligible').length;
+  const missingCount = mList.filter(m => m.status === 'Partially Eligible').length;
+  const notEligibleCount = mList.filter(m => m.status === 'Not Eligible').length;
+  const uniqueUniversities = [...new Set(mList.map(m => m.university_id))];
+
   res.json({
     success: true,
     overview: {
-      profile_completeness: { has_cgpa: profile?.cgpa != null, has_cv: profile?.cv_file_path != null },
-      summary: { total_scholarships_checked: mList.length, eligible: mList.filter(m => m.status === 'Eligible').length },
-      top_recommendations: mList.slice(0, 3)
+      profile_completeness: {
+        has_cgpa: hasCgpa,
+        has_ielts: hasIelts,
+        has_cv: hasCv,
+        has_target_degree: hasDegree,
+      },
+      summary: {
+        total_scholarships_checked: mList.length,
+        eligible: eligibleCount,
+        missing_requirements: missingCount,
+        not_eligible: notEligibleCount,
+        universities_covered: uniqueUniversities.length,
+      },
+      top_recommendations: mList.sort((a, b) => b.match_score - a.match_score).slice(0, 3)
     }
   });
 }
-
-module.exports = { updateProfile, getProfile, uploadCv, analyzeCv, matchScholarships, getMatches, getOverview };
